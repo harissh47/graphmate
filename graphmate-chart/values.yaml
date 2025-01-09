@@ -1,0 +1,79 @@
+# Default values for graphmate-chart.
+frontend:
+  name: frontend
+  replicaCount: 1
+  image:
+    repository: graphmate-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  env:
+    NEXT_PUBLIC_API_BASE_URL: "/api"
+
+backend:
+  name: backend
+  replicaCount: 1
+  image:
+    repository: graphmate-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8321
+    targetPort: 8321
+  env:
+    # Database Configuration
+    DB_HOST: "db"
+    DB_PORT: "5432"
+    DB_DATABASE: "chart-db"
+    SQLALCHEMY_DATABASE_URI_SCHEME: "postgresql"
+    DEPLOY_ENV: "DEVELOPMENT"
+    # Storage Configuration
+    STORAGE_LOCAL_PATH: "storage"
+    STORAGE_TYPE: "local"
+    # External API Configuration
+    LLM_OPS_BASEURL: "https://copilot-dev.sifymdp.digital"
+
+database:
+  name: chart-db
+  image:
+    repository: postgres
+    tag: 15-alpine
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  env:
+    POSTGRES_DB: "chart-db"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: graphmate.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8321

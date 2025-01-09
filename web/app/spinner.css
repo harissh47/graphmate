@@ -1,0 +1,100 @@
+body {
+    background: transparent; /* Keeps transparent background */
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Full viewport height for centering */
+    overflow: hidden;
+    animation: background-glow 2s infinite ease-in-out; /* Background glow animation */
+  }
+  
+  .spinner {
+    width: 150px; /* Adjusted size */
+    height: 150px;
+    position: relative;
+  }
+  
+  .spinner > div {
+    width: 0;
+    height: 0;
+    position: absolute; /* Positioned at the center */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    -webkit-animation: sk-wave 2s infinite ease-in-out both, color-change 2s infinite ease-in-out;
+    animation: sk-wave 2s infinite ease-in-out both, color-change 2s infinite ease-in-out;
+    box-shadow: 0 0 20px rgba(255, 223, 0, 0.9); /* Golden glow */
+  }
+  
+  .spinner > div::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px; /* Adjusted size of the star */
+    height: 40px;
+    background: linear-gradient(45deg, #FFD700, #FF6347); /* Gold and orange gradient */
+    clip-path: polygon(
+      50% 0%, 60% 30%, 100% 50%, 60% 70%, 
+      50% 100%, 40% 70%, 0% 50%, 40% 30%
+    ); /* Symmetrical star resembling Gemini */
+    transform: translate(-50%, -50%);
+    -webkit-animation: sparkle 1.4s infinite ease-in-out both;
+    animation: sparkle 1.4s infinite ease-in-out both;
+    opacity: 1;
+  }
+  
+  @-webkit-keyframes sk-wave {
+    0%, 80%, 100% {
+      -webkit-transform: scale(0.9) translateY(0);
+      transform: scale(0.9) translateY(0);
+    }
+    40% {
+      -webkit-transform: scale(1.05) translateY(-5px); /* Reduced scale and translate */
+      transform: scale(1.05) translateY(-5px);
+    }
+  }
+  
+  @keyframes sk-wave {
+    0%, 80%, 100% {
+      -webkit-transform: scale(0.9) translateY(0);
+      transform: scale(0.9) translateY(0);
+    }
+    40% {
+      -webkit-transform: scale(1.05) translateY(-5px); /* Reduced scale and translate */
+      transform: scale(1.05) translateY(-5px);
+    }
+  }
+  
+  @keyframes sparkle {
+    0%, 80%, 100% {
+      opacity: 0.5;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes color-change {
+    0% {
+      box-shadow: 0 0 20px #FFD700;
+    }
+    50% {
+      box-shadow: 0 0 20px #FF6347;
+    }
+    100% {
+      box-shadow: 0 0 20px #FFD700;
+    }
+  }
+  
+  @keyframes background-glow {
+    0%, 100% {
+      background: transparent;
+    }
+    50% {
+       /* Golden glow for the background */
+    }
+  }

@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.backend.name }}
+  labels:
+    app: {{ .Values.backend.name }}
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.backend.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.backend.name }}
+    spec:
+      containers:
+        - name: {{ .Values.backend.name }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8321
+              protocol: TCP
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: auth-token
+            - name: AUTH_TOKEN_CHART
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: auth-token-chart
+            - name: SUPERSET_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: superset-token
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: secret-key
+            {{- range $key, $value := .Values.backend.env }}
+            {{- if ne $key "secretKeyRef" }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /app/storage
+      volumes:
+        - name: storage-volume
+          emptyDir: {}

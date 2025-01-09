@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  frontend:
+    # build:
+    #   context: ./web
+    #   dockerfile: Dockerfile
+    image: graphmate-frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8321
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    container_name: frontend
+
+  backend:
+    # build:
+    #   context: ./api
+    #   dockerfile: Dockerfile
+    image: graphmate-backend:latest
+    ports:
+      - "8321:8321"
+    environment:
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=chart_db
+      - SQLALCHEMY_DATABASE_URI_SCHEME=postgresql
+      - DEPLOY_ENV=DEVELOPMENT
+
+# Storage Configuration
+      - STORAGE_LOCAL_PATH=storage
+      - STORAGE_TYPE=local
+
+# External API Endpoint
+      - LLM_OPS_BASEURL=https://copilot-dev.sifymdp.digital
+      - AUTH_TOKEN=app-VTb4e1e0I5FvjfDT2npvCNQc
+      - AUTH_TOKEN_CHART=app-STHJ8wo6RilBMhqMCbjS4rS4
+      - SUPERSET_AUTH_TOKEN = zpur3uBvOhRJZCxgiTO7+EVPEwwsxwHNapjhM97Msx9qW57qj0r0mtGB
+      - SECRET_KEY=Y9+bBLPT9lBwY+P150VlVKTtH1XLRLbVp1NxeVVj/nOi8QN+diM54bfk
+
+
+# Secret Key for the application
+      - SECRET_KEY=Y9+bBLPT9lBwY+P150VlVKTtH1XLRLbVp1NxeVVj/nOi8QN+diM54bfk
+
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    # env_file:
+    #   - ./api/.env
+    container_name: backend
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5435:5435"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=chart_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    container_name: db
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
