@@ -23,7 +23,7 @@ pipeline {
         }
       }
     }
-    stages('start the backend') {
+    stage('start the backend') {
       steps {
         echo ' installing the packages '
         dir ('api') {
