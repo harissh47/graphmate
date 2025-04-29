@@ -23,8 +23,17 @@ pipeline {
         }
       }
     }
+    stages('start the backend') {
+      steps {
+        echo ' installing the packages '
+        dir ('api') {
+          bat ' pip install -r requirements.txt '
+          bat ' flask run --debug --port 8321 '
+        }
+      }  
+    }
   }
-
+    
   post {
     success {
       echo '✅ Web app is running on http://localhost:3000'
