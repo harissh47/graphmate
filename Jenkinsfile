@@ -2,10 +2,11 @@ pipeline {
   agent any
 
   environment {
-    NODE_ENV = 'development'
+    NODE_ENV = 'development'    // applies to both web and api
   }
 
   stages {
+    // —— Web stages ——
     stage('Install Web Dependencies') {
       steps {
         echo '📥 Installing dependencies for web...'
@@ -19,27 +20,40 @@ pipeline {
       steps {
         echo '🚀 Starting web app...'
         dir('web') {
-          bat 'npm run dev'
+          // run dev server in background so pipeline can proceed
+          bat 'start /b npm run dev -- --hostname 0.0.0.0'
         }
       }
     }
-    stage('start the backend') {
+
+    // —— Backend stages ——
+    stage('Install Backend Dependencies') {
       steps {
-        echo ' installing the packages '
-        dir ('api') {
-          bat ' pip install -r requirements.txt '
-          bat ' flask run --debug --port 8321 '
+        echo '📥 Installing dependencies for API...'
+        dir('api') {
+          bat 'pip install -r requirements.txt'
         }
-      }  
+      }
+    }
+
+    stage('Start Backend') {
+      steps {
+        echo '🚀 Starting Flask API...'
+        dir('api') {
+          // run flask in background; adjust if you use virtualenv
+          bat 'start /b flask run --debug --port 8321 --host=0.0.0.0'
+        }
+      }
     }
   }
-    
+
   post {
     success {
-      echo '✅ Web app is running on http://localhost:3000'
+      echo '✅ Web on http://<host>:3000 and API on http://<host>:8321'
     }
     failure {
       echo '❌ Pipeline failed; check console logs.'
     }
   }
 }
+
