@@ -19,7 +19,7 @@ pipeline {
       steps {
         echo '🚀 Starting web app...'
         dir('web') {
-          bat 'start /b npm run dev'
+          bat 'npm run dev'
         }
       }
     }
