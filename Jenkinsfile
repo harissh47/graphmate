@@ -31,7 +31,7 @@ pipeline {
       steps {
         echo '📥 Installing dependencies for API...'
         dir('api') {
-          bat 'pip install -r requirements.txt'
+          bat 'python -m pip install -r requirements.txt'
         }
       }
     }
