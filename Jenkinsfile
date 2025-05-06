@@ -2,24 +2,31 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME      = 'mappy-web-app'
-    CONTAINER_NAME  = 'mappy-web-container'
-    APP_PORT        = '3000'
-    NODE_ENV        = 'production'
+    // Name for the built Docker image
+    IMAGE_NAME = "my-node-app"
+    // Container port to expose
+    APP_PORT   = "3000"
   }
 
   stages {
     stage('Checkout') {
       steps {
-        checkout scm
+        checkout scm                                             // clone your repo :contentReference[oaicite:4]{index=4}
       }
     }
 
-    stage('Install & Build Web') {
+    stage('Install & Build') {
+      // run inside official Node.js image, with Docker socket mounted
+      agent {
+        docker {
+          image 'node:18-alpine'
+          args  '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+      }
       steps {
-        dir('web') {
-          bat 'npm install'
-          bat 'npm run build'
+        dir('web') {                                            // switch into web/ where package.json lives 
+          sh 'npm install'                                      // install dependencies 
+          sh 'npm run build'                                    // build production assets 
         }
       }
     }
@@ -27,25 +34,33 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('web') {
-          bat "docker build -t %IMAGE_NAME% ."
+          script {
+            // build image and tag with build number
+            IMAGE = docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}", ".")  :contentReference[oaicite:8]{index=8}
+          }
         }
       }
     }
 
     stage('Run Docker Container') {
       steps {
-        bat "docker rm -f %CONTAINER_NAME% || exit 0"
-        bat "docker run -d -p %APP_PORT%:3000 --name %CONTAINER_NAME% %IMAGE_NAME%"
+        script {
+          // remove old container if exists
+          sh "docker rm -f ${env.IMAGE_NAME} || true"          :contentReference[oaicite:9]{index=9}
+          // run new container, map host port to container port
+          sh "docker run -d -p ${env.APP_PORT}:3000 --name ${env.IMAGE_NAME} ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"  :contentReference[oaicite:10]{index=10}
+        }
       }
     }
   }
 
   post {
     success {
-      echo "✅ App running in Docker at http://<jenkins-host>:${env.APP_PORT}"
+      echo "✅ Application is running at http://<jenkins-host>:${env.APP_PORT}"
     }
     failure {
-      echo "❌ Pipeline failed—check console logs."
+      echo "❌ Pipeline failed—see console output for details."
     }
   }
 }
+
