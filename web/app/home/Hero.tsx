@@ -31,7 +31,33 @@ export default function Hero() {
                   <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                 </span>
               </a>
-              <a href="/" className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-900 text-gray-900 rounded-full hover:bg-gray-50 transition-colors">
+              <a 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const modal = document.createElement('div');
+                  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-0';
+                  modal.innerHTML = `
+                    <div class="bg-white p-0 rounded-lg relative w-full max-w-[800px]">
+                      <button class="absolute top-2 right-2 text-red-500 hover:text-red-700 z-10" onclick="this.parentElement.parentElement.remove()">✕</button>
+                      <div class="relative w-full" style="padding-bottom: 56.25%;">
+                        <iframe 
+                          class="absolute top-0 left-0 w-full h-full"
+                          src="https://www.youtube.com/embed/ZPoCS4-fwsQ" 
+                          frameborder="0" 
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                          allowfullscreen
+                        ></iframe>
+                      </div>
+                    </div>
+                  `;
+                  document.body.appendChild(modal);
+                  modal.onclick = (e) => {
+                    if (e.target === modal) modal.remove();
+                  };
+                }}
+                className="px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-900 text-gray-900 rounded-full hover:bg-gray-50 transition-colors"
+              >
                 Watch Demo
               </a>
             </div>

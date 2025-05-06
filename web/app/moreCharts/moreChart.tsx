@@ -6,6 +6,7 @@ import * as echarts from 'echarts';
 import 'echarts-stat';
 import { getChartOption, CHART_TYPES, ChartType } from './morevisual';
 import Sidebar from './Sidebar';
+import { useDatasetStore } from '../datastorage/dataStore';
 
 interface MoreChartProps {
     selectedChart: ChartType;
@@ -15,7 +16,7 @@ interface MoreChartProps {
 
 const CHARTS_BY_TYPE: Record<string, string[]> = {
     'Line Chart': ['Basic Line Chart', 'Smoothed Line Chart', 'Basic Area Chart', 'Stacked Line Chart'],
-    'Bar Graph': ['Basic Bar Chart', 'Axis Align with Tick', 'Bar with Background'],
+    'Bar Chart': ['Basic Bar Chart', 'Axis Align with Tick', 'Bar with Background'],
     'Pie Chart': ['Simple Pie', 'Doughnut Pie Chart', 'Customized Pie'],
     'Scatter Plot': ['Basic Scatter Chart'],
     'Heatmap': ['Heatmap'],
@@ -26,25 +27,51 @@ export default function ChartDisplay({ selectedChart, onChartSelect, selectedPro
     const [zoomedChartIndex, setZoomedChartIndex] = useState<number>(0);
     const [activeChartType, setActiveChartType] = useState<string>('Line Chart');
 
+    const { 
+        currentChartData,
+        currentChartType,
+        promptsHistory 
+    } = useDatasetStore();
+
     const chartRefs = useRef<(HTMLDivElement | null)[]>([]);
     const chartInstanceRefs = useRef<(echarts.ECharts | null)[]>([]);
     const zoomedChartRef = useRef<HTMLDivElement | null>(null);
     const zoomedChartInstance = useRef<echarts.ECharts | null>(null);
 
-    // Initialize all charts on activeChartType change
+    useEffect(() => {
+        // If we have current data, set the active chart type
+        if (currentChartData) {
+            setActiveChartType(currentChartType);
+        }
+        // If no current data but we have history, use the last item
+        else if (promptsHistory.length > 0) {
+            const lastPrompt = promptsHistory[promptsHistory.length - 1];
+            if (lastPrompt.data) {
+                setActiveChartType(lastPrompt.chart_type);
+            }
+        }
+    }, [currentChartData, promptsHistory, currentChartType]);
+
+    // Initialize charts with the current data
     useEffect(() => {
         chartRefs.current.forEach((ref, index) => {
             if (ref) {
-                chartInstanceRefs.current[index]?.dispose();
-                const chartInstance = echarts.init(ref);
-                chartInstanceRefs.current[index] = chartInstance;
+                try {
+                    chartInstanceRefs.current[index]?.dispose();
+                    const chartInstance = echarts.init(ref);
+                    chartInstanceRefs.current[index] = chartInstance;
 
-                const chartType = CHARTS_BY_TYPE[activeChartType][index];
-                const option = getChartOption(chartType as ChartType);
-                if (option) {
-                    chartInstance.setOption(option);
-                } else {
-                    ref.style.opacity = '0.5';
+                    const chartType = CHARTS_BY_TYPE[activeChartType][index];
+                    const option = getChartOption(chartType as ChartType, currentChartData);
+
+                    if (option) {
+                        chartInstance.setOption(option);
+                    } else {
+                        ref.style.opacity = '0.5';
+                        console.warn(`No options available for chart type: ${chartType}`);
+                    }
+                } catch (error) {
+                    console.error(`Error initializing chart at index ${index}:`, error);
                 }
             }
         });
@@ -52,26 +79,40 @@ export default function ChartDisplay({ selectedChart, onChartSelect, selectedPro
         return () => {
             chartInstanceRefs.current.forEach((instance) => instance?.dispose());
         };
-    }, [activeChartType]);
+    }, [activeChartType, currentChartData]);
 
     // Handle zoom behavior
     useEffect(() => {
         if (isZoomed && zoomedChartRef.current) {
-            zoomedChartInstance.current?.dispose();
-            const chartInstance = echarts.init(zoomedChartRef.current);
-            zoomedChartInstance.current = chartInstance;
+            try {
+                zoomedChartInstance.current?.dispose();
+                const chartInstance = echarts.init(zoomedChartRef.current);
+                zoomedChartInstance.current = chartInstance;
 
-            const chartType = CHARTS_BY_TYPE[activeChartType][zoomedChartIndex];
-            const option = getChartOption(chartType as ChartType);
-            if (option) {
-                chartInstance.setOption(option);
+                const chartType = CHARTS_BY_TYPE[activeChartType][zoomedChartIndex];
+                const option = getChartOption(chartType as ChartType, currentChartData);
+
+                if (option) {
+                    chartInstance.setOption(option);
+                } else {
+                    console.warn(`No options available for zoomed chart type: ${chartType}`);
+                }
+            } catch (error) {
+                console.error('Error initializing zoomed chart:', error);
             }
         }
 
         return () => {
             zoomedChartInstance.current?.dispose();
         };
-    }, [isZoomed, zoomedChartIndex, activeChartType]);
+    }, [isZoomed, zoomedChartIndex, activeChartType, currentChartData]);
+
+    useEffect(() => {
+        if (activeChartType === 'Scatter Plot' && currentChartData) {
+            const hasCategory = currentChartData.data.category.length > 0;
+            useDatasetStore.setState({ scatterPlotDataSource: hasCategory ? 'category' : 'series' });
+        }
+    }, [activeChartType, currentChartData]);
 
     const toggleZoom = (index: number): void => {
         setZoomedChartIndex(index);
@@ -80,12 +121,12 @@ export default function ChartDisplay({ selectedChart, onChartSelect, selectedPro
 
     return (
         <div className="ml-0 sm:ml-60 pt-6 min-h-screen">
-            <Sidebar onChartSelect={setActiveChartType} />
+            <Sidebar onChartSelect={setActiveChartType} currentChartType={currentChartType} />
             <div className="flex justify-center items-center mb-4 bg-white/50 rounded-lg p-4 shadow-sm">
                 <h2 className="text-2xl"> <strong>Prompt:</strong> {selectedPrompt || "More Charts📊"}</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
-                {CHARTS_BY_TYPE[activeChartType].map((chartType, index) => (
+                {CHARTS_BY_TYPE[activeChartType]?.map((chartType, index) => (
                     <div key={index} className="bg-white rounded-xl p-6 shadow-sm h-[500px]">
                         <div className="relative h-[90%]">
                             <div
@@ -93,7 +134,7 @@ export default function ChartDisplay({ selectedChart, onChartSelect, selectedPro
                                     chartRefs.current[index] = el;
                                 }}
                                 className={`w-full h-full bg-gray-50 rounded-lg overflow-hidden border ${
-                                    !getChartOption(chartType as ChartType) ? 'opacity-50' : ''
+                                    !getChartOption(chartType as ChartType, currentChartData) ? 'opacity-50' : ''
                                 }`}
                             ></div>
                             <button
@@ -107,7 +148,7 @@ export default function ChartDisplay({ selectedChart, onChartSelect, selectedPro
                             <h3 className="text-lg font-medium text-gray-900">{chartType}</h3>
                         </div>
                     </div>
-                ))}
+                )) || <p>No charts available for the selected type.</p>}
             </div>
 
             {isZoomed && (

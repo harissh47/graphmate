@@ -1,3 +1,5 @@
+import { useDatasetStore } from '../datastorage/dataStore'; // Ensure this import is present
+
 // Define chart type as a union type
 export type ChartType = 
     | "Basic Line Chart"
@@ -29,15 +31,23 @@ export const CHART_TYPES: ChartType[] = [
     "Heatmap"
 ];
 
-export const getChartOption = (chartType: ChartType) => {
-    const storedData = sessionStorage.getItem('chartData');
-    const chartData = storedData ? JSON.parse(storedData) : { 
-        data: {
-            category: [],
-            value: [],
-            series: [],
-            additional: []
-        }
+export const getChartOption = (chartType: ChartType, chartData: any) => {
+    // Remove sessionStorage usage
+    if (!chartData) {
+        chartData = { 
+            data: {
+                category: [],
+                value: [],
+                series: [],
+                additional: []
+            }
+        };
+    }
+
+    // Helper function to validate color
+    const validateColor = (color: string | undefined): string => {
+        // Default to a safe color if undefined or invalid
+        return color && /^#([0-9A-F]{3}){1,2}$/i.test(color) ? color : '#000000';
     };
 
     if (chartType === "Basic Line Chart") {
@@ -51,7 +61,10 @@ export const getChartOption = (chartType: ChartType) => {
             },
             series: [{
                 data: chartData.data.value,
-                type: 'line'
+                type: 'line',
+                itemStyle: {
+                    color: validateColor(chartData.data.color) // Example of color validation
+                }
             }]
         };
     } 
@@ -324,16 +337,17 @@ export const getChartOption = (chartType: ChartType) => {
         };
     }
     else if (chartType === "Basic Scatter Chart") {
-        const scatterData = chartData.data.value.map((val: number, index: number) => {
-            const x = val;
-            const y = chartData.data.category[index] || 0;
-            const z = chartData.data.series[index] || 0;
-            return [x, y, z];
+        const hasCategory = chartData.data.category.length > 0;
+        const scatterData = (hasCategory ? chartData.data.category : chartData.data.series).map((category: string, index: number) => {
+            const x = chartData.data.series[index] || category || `Series ${index + 1}`;
+            const y = chartData.data.value[index] ?? 0; // Use nullish coalescing for default value
+            return [x, y];
         });
 
         return {
             xAxis: {
-                type: 'value'
+                type: 'category', // Consider using 'category' if x is categorical
+                data: hasCategory ? chartData.data.category : chartData.data.series // Use series if available
             },
             yAxis: {
                 type: 'value'
@@ -350,18 +364,34 @@ export const getChartOption = (chartType: ChartType) => {
     else if (chartType === "Heatmap") {
         const { category, value, additional } = chartData.data;
 
-        // Generate heatmap data
+        // Use value as yAxis labels (e.g., countries)
+        const yAxisLabels = [...new Set(value)]; // Remove duplicates
+
+        // Generate heatmap data in the format [xIndex, yIndex, value]
         const heatmapData = additional.map((val: number, index: number) => {
-            const x = index % category.length;
-            const y = Math.floor(index / category.length);
-            return [x, y, val];
+            const xLabel = category[index]; // x-axis label (region)
+            const yLabel = value[index]; // y-axis label (country)
+            const xIndex = [...new Set(category)].indexOf(xLabel); // x-axis index (unique regions)
+            const yIndex = yAxisLabels.indexOf(yLabel); // y-axis index (unique countries)
+            return [xIndex, yIndex, val || 0]; // [x, y, value]
         });
+
+        // Filter out null/undefined values before calculating min/max
+        const validNumbers = additional.filter((val: any) => 
+            typeof val === 'number' && !isNaN(val) && val !== null
+        );
+        
+        // Set default min/max if no valid numbers exist
+        const minValue = validNumbers.length > 0 ? Math.min(...validNumbers) : 0;
+        const maxValue = validNumbers.length > 0 ? Math.max(...validNumbers) : 100;
 
         return {
             tooltip: {
                 position: 'top',
                 formatter: (params: any) => {
-                    return `Category: ${category[params.data[0]]}<br>Value: ${value[params.data[1]]}<br>Count: ${params.data[2]}`;
+                    const xLabel = [...new Set(category)][params.data[0]] || `Category ${params.data[0] + 1}`;
+                    const yLabel = yAxisLabels[params.data[1]] || `Series ${params.data[1] + 1}`;
+                    return `${xLabel}<br>${yLabel}<br>Value: ${params.data[2]}`;
                 }
             },
             grid: {
@@ -370,39 +400,40 @@ export const getChartOption = (chartType: ChartType) => {
             },
             xAxis: {
                 type: 'category',
-                data: category,
+                data: [...new Set(category)], // Unique regions for x-axis
                 splitArea: { show: true }
             },
             yAxis: {
                 type: 'category',
-                data: value,
+                data: yAxisLabels, // Unique countries for y-axis
                 splitArea: { show: true }
             },
             visualMap: {
-                min: Math.min(...additional),
-                max: Math.max(...additional),
+                min: minValue,
+                max: maxValue,
                 calculable: true,
                 orient: 'horizontal',
                 left: 'center',
-                bottom: '15%'
+                bottom: '15%',
+                inRange: {
+                    color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026']
+                }
             },
-            series: [
-                {
-                    name: 'Punch Card',
-                    type: 'heatmap',
-                    data: heatmapData,
-                    label: {
-                        show: true,
-                        formatter: (params: any) => params.data[2]
-                    },
-                    emphasis: {
-                        itemStyle: {
-                            shadowBlur: 10,
-                            shadowColor: 'rgba(0, 0, 0, 0.5)'
-                        }
+            series: [{
+                name: 'Heatmap',
+                type: 'heatmap',
+                data: heatmapData,
+                label: {
+                    show: true,
+                    formatter: (params: any) => params.data[2]
+                },
+                emphasis: {
+                    itemStyle: {
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
                     }
                 }
-            ]
+            }]
         };
     }
     return null;

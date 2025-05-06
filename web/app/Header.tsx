@@ -23,7 +23,9 @@ export default function Header() {
           )}
         </div>
         <nav className="hidden md:flex items-center space-x-4">
-          <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors border border-gray-300 hover:border-blue-600 rounded-full px-3 py-1">Home</a>
+          <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors border border-gray-300 hover:border-blue-600 rounded-full px-3 py-1" onClick={() => {
+            sessionStorage.clear();
+          }}>Home</a>
           <a href="/upload" className="text-gray-600 hover:text-blue-600 transition-colors border border-gray-300 hover:border-blue-600 rounded-full px-3 py-1" onClick={() => {
             sessionStorage.clear();
           }}>Upload</a>
@@ -41,7 +43,9 @@ export default function Header() {
       {isMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200">
           <nav className="flex flex-col items-start space-y-2 p-4">
-            <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">Home</a>
+            <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors duration-200" onClick={() => {
+              sessionStorage.clear();
+            }}>Home</a>
             <a href="/upload" className="text-gray-600 hover:text-blue-600 transition-colors duration-200" onClick={() => {
               sessionStorage.clear();
             }}>Upload</a>

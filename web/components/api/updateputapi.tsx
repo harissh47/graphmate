@@ -14,8 +14,11 @@ export const updateDataset = async (dataset: {
   dataset_relation_id: string;
 }) => {
   try {
-    console.log('Sending dataset:', dataset);
-    const response = await axios.put(API_URL, dataset);
+    //console.log('Sending dataset:', dataset);
+    const response = await axios.put(API_URL, dataset, {
+      withCredentials: true // This enables sending and receiving cookies
+    });
+    
     return response.data;
   } catch (error) {
     console.error('Error updating dataset:', error);

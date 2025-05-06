@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '../Header';
 import Footer from '../Footer';
+import { useDatasetStore } from '../datastorage/dataStore';
+import { useRouter } from 'next/navigation';
 
 // Dynamically import components with SSR disabled
 const Sidebar = dynamic(() => import('./Sidebar'), { ssr: false });
@@ -12,15 +14,32 @@ const MoreChart = dynamic(() => import('./moreChart'), { ssr: false });
 import { ChartType } from './morevisual';
 
 export default function ChatPage() {
+  const router = useRouter();
   const [selectedChart, setSelectedChart] = useState<ChartType>("Basic Line Chart");
-  const [selectedPrompt, setSelectedPrompt] = useState<string>("");
+  
+  const { 
+    currentPrompt, 
+    currentChartType, 
+    currentChartData,
+    promptsHistory,
+    savedPrompts
+  } = useDatasetStore();
+
+  const [selectedPrompt, setSelectedPrompt] = useState<string>(currentPrompt);
 
   useEffect(() => {
-    const storedPrompt = sessionStorage.getItem('selectedPrompt');
-    if (storedPrompt) {
-      setSelectedPrompt(storedPrompt);
+    // Redirect only if there's no data available
+    if (!currentChartData && 
+        promptsHistory.length === 0 && 
+        savedPrompts.length === 0) {
+      router.push('/generate');
     }
-  }, []);
+  }, [currentChartData, promptsHistory, savedPrompts, router]);
+
+  // Add back button handler
+  const handleBack = () => {
+    router.push('/generate');
+  };
 
   const handleChartSelect = (chart: ChartType) => {
     setSelectedChart(chart);
@@ -36,11 +55,20 @@ export default function ChatPage() {
     >
       <Header />
       <div className="flex flex-grow">
-        <Sidebar onChartSelect={handleChartSelect} />
+        {/* Add back button */}
+        {/* <button
+          onClick={handleBack}
+          className="absolute top-24 left-4 px-4 py-2 text-white rounded-xl bg-blue-500 hover:bg-blue-600"
+        >
+          Back to Generate
+        </button> */}
+
+        <Sidebar 
+          onChartSelect={handleChartSelect} 
+          currentChartType={currentChartType}
+        />
         <main className="flex-grow container mx-auto px-4 pt-24 pb-12">
-          {/* <h1 className="text-3xl font-bold text-center">
-            {selectedPrompt || "More Charts📊"}
-          </h1> */}
+
           <MoreChart 
             selectedChart={selectedChart}
             onChartSelect={handleChartSelect}

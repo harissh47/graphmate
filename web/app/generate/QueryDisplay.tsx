@@ -8,12 +8,15 @@ interface QueryDisplayProps {
     isPromptSelected: boolean;
 }
 
-export default function QueryDisplay({ query, isPromptSelected }: QueryDisplayProps) {
+export default function QueryDisplay({ query = "", isPromptSelected }: QueryDisplayProps) {
     const [showToast, setShowToast] = useState(false);
 
     // Function to strip the date suffix from the query
     const stripDateSuffix = (query: string) => {
-        return query.replace(/(_\d{8}_\d{6})/g, '');
+        if (!query || typeof query !== 'string') {
+            return ''; // Return an empty string if query is undefined or not a string
+        }
+        return query.replace(/(_\d{8}_\d{6})/g, ''); // Example: replace with a different pattern or logic
     };
 
     // Function to copy the query to the clipboard

@@ -3,7 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft, X, Upload, Trash, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Header from "../Header";
 import Footer from "../Footer"; // Import the Footer component
 import Link from 'next/link';
@@ -14,10 +14,43 @@ import { useRouter } from 'next/navigation';
 import { updateDataset } from '../../components/api/updateputapi';
 import { postDatasetChart } from '../../components/api/continueapi'; // Import the API function
 import NewModal from './newModal'; // Import the new modal
- 
+import { refreshDataset } from '../../components/api/refresh'; // Import the refresh function
+import { useDatasetStore } from '../datastorage/dataStore';
+
+// Add interface for column type
+interface Column {
+  columnName: string;
+  column_name?: string;
+  columnDescription?: string;
+  column_description?: string;
+  columnDataDescription?: string;
+  column_data_description?: string;
+  columnDataType?: string;
+  column_data_type?: string;
+}
+
 export default function App() {
   const [fileName, setFileName] = useState<string>('');
-  const [datasets, setDatasets] = useState<{ fileName: string, response: { columns: any[]; datasetId?: string; dataset_relation_id?: string; [key: string]: any }, color: string }[]>([]);
+  const storeDatasets = useDatasetStore((state) => state.datasets);
+  const setStoreDatasets = useDatasetStore((state) => state.setDatasets);
+  
+  // Initialize datasets from store
+  const [datasets, setDatasets] = useState<Array<{
+    fileName: string;
+    response: any;
+    color: string;
+  }>>(storeDatasets);
+
+  // Update both local state and store when datasets change
+  const updateDatasets = useCallback((newDatasets: Array<{
+    fileName: string;
+    response: any;
+    color: string;
+  }>) => {
+    setDatasets(newDatasets);
+    setStoreDatasets(newDatasets);
+  }, [setStoreDatasets]);
+
   const [loading, setLoading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isEdited, setIsEdited] = useState<boolean>(false);
@@ -40,48 +73,32 @@ export default function App() {
   const [selectedOperator, setSelectedOperator] = useState<string>('');
   const [selectedFile2, setSelectedFile2] = useState<string>('');
   const [selectedColumn2, setSelectedColumn2] = useState<string>('');
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
 
   // Define operator options
   const operatorOptions = ['=', '>', '<'];
 
-  // Function to get column names based on selected file
+  // Add new state for managing multiple relations
+  const [relations, setRelations] = useState<{
+    file1: string;
+    column1: string;
+    operator: string;
+    file2: string;
+    column2: string;
+  }[]>([]);
+
+  // Add new state to store table names
+  const [tableNames, setTableNames] = useState<{ [key: string]: string }>({});
+
+  // Add new state for error message
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Update the getColumnNames function
   const getColumnNames = (fileName: string) => {
     const dataset = datasets.find(dataset => dataset.fileName === fileName);
-    return dataset ? dataset.response.columns.map(column => column.columnName) : [];
+    return dataset ? dataset.response.columns.map((column: Column) => column.columnName || column.column_name || '') : [];
   };
 
-  useEffect(() => {
-    const storedFileName = sessionStorage.getItem('fileName');
-    const storedUploadResponse = sessionStorage.getItem('uploadResponse');
-    const storedRelationId = sessionStorage.getItem('datasetRelationId');
-
-    console.log('Retrieved from sessionStorage:', {
-      storedFileName,
-      storedUploadResponse,
-      storedRelationId,
-    });
-
-    if (storedFileName) {
-      setFileName(storedFileName);
-    }
-    if (storedUploadResponse) {
-      try {
-        const parsedResponse = JSON.parse(storedUploadResponse);
-        setDatasets([{
-          fileName: storedFileName || '',
-          response: parsedResponse,
-          color: `hsl(${Math.random() * 360}, 100%, 90%)`
-        }]);
-      } catch (error) {
-        console.error('Error parsing upload response:', error);
-      }
-    }
-
-    if (storedRelationId) {
-      setLastRelationId(storedRelationId);
-    }
-  }, []);
- 
   useEffect(() => {
     // Check if all datasets are not edited
     const allUpdated = editedDatasets.every((edited) => !edited);
@@ -89,12 +106,19 @@ export default function App() {
   }, [editedDatasets]);
  
   useEffect(() => {
-    const storedRelationId = sessionStorage.getItem('datasetRelationId');
-    if (storedRelationId) {
-      setDatasetRelationId(storedRelationId);
-      console.log('Retrieved datasetRelationId from sessionStorage:', storedRelationId);
+    // Remove sessionStorage usage
+    if (datasetRelationId) {
+      //console.log('Using datasetRelationId:', datasetRelationId);
     }
-  }, []);
+  }, [datasetRelationId]);
+ 
+  useEffect(() => {
+    // Check if there are no datasets
+    if (!datasets || datasets.length === 0) {
+      //console.log('No datasets available - redirecting to upload page');
+      router.push('/upload');
+    }
+  }, [datasets, router]);
  
   const handleAddDatasetClick = () => {
     if (fileInputRef.current) {
@@ -107,29 +131,26 @@ export default function App() {
     if (file) {
       setLoading(true);
       try {
-        console.log('Current datasetRelationId before upload:', datasetRelationId);
-
-        // Convert null to undefined for the uploadFile function
         const response = await uploadFile(file, datasetRelationId ?? undefined);
-
-        const color = `hsl(${Math.random() * 360}, 100%, 90%)`; // Generate color
+        
         const newDataset = {
           fileName: file.name,
           response: {
             ...response,
-            dataset_relation_id: response.dataset_relation_id // Ensure the relation ID is set
+            dataset_relation_id: response.dataset_relation_id,
+            table_name: response.table_name || '',
+            db_type: response.db_type || '',
+            columns: response.columns.map((column: any) => ({
+              columnName: column.columnName || column.column_name || '',
+              columnDescription: column.columnDescription || column.column_description || '',
+              columnDataDescription: column.columnDataDescription || column.column_data_description || '',
+              columnDataType: column.columnDataType || column.column_data_type || ''
+            }))
           },
-          color: color
+          color: `hsl(${Math.random() * 360}, 100%, 90%)`
         };
-        setDatasets((prevDatasets) => {
-          const updatedDatasets = [...prevDatasets, newDataset];
-          sessionStorage.setItem('datasets', JSON.stringify(updatedDatasets)); // Store all datasets in session
-          return updatedDatasets;
-        });
 
-        setDatasetColors((prevColors) => [...prevColors, color]); // Save the color
-
-        console.log(`Added dataset - Dataset ID: ${response.datasetId}, Using Initial Relation ID: ${response.dataset_relation_id}`);
+        updateDatasets([...datasets, newDataset]);
       } catch (error) {
         console.error('Error uploading file:', error);
       } finally {
@@ -139,25 +160,30 @@ export default function App() {
   };
  
   const handleRemoveDataset = (index: number) => {
+    const datasetToRemove = datasets[index];
+    
+    // Filter out relations that include the removed dataset
+    setRelations(prevRelations => 
+        prevRelations.filter(relation => 
+            relation.file1 !== datasetToRemove.fileName && 
+            relation.file2 !== datasetToRemove.fileName
+        )
+    );
+
     setDatasetToDelete(index);
     setIsDeleteModalOpen(true);
   };
 
   const confirmDeleteDataset = () => {
     if (datasetToDelete !== null) {
-      setDatasets((prevDatasets) => {
-        const updatedDatasets = prevDatasets.filter((_, i) => i !== datasetToDelete);
-        
-        // Update session storage with the new datasets
-        sessionStorage.setItem('datasets', JSON.stringify(updatedDatasets));
-
-        if (updatedDatasets.length === 0) {
-          sessionStorage.clear();
-          router.push('/upload');
-        }
-
-        return updatedDatasets;
-      });
+      const updatedDatasets = datasets.filter((_, i) => i !== datasetToDelete);
+      updateDatasets(updatedDatasets);
+      
+      // If no datasets remain after deletion, redirect to upload page
+      if (updatedDatasets.length === 0) {
+        router.push('/upload');
+      }
+      
       setDatasetToDelete(null);
     }
     setIsDeleteModalOpen(false);
@@ -199,42 +225,82 @@ export default function App() {
             dataset_relation_id: dataset.dataset_relation_id ?? '',
         });
 
-        // Print the response data to the console
-        console.log('PUT response:', updatedData);
+        //console.log('PUT response:', updatedData);
 
-        // Mark the dataset as updated
         setEditedDatasets((prevEdited) => {
             const newEdited = [...prevEdited];
             newEdited[datasetIndex] = false;
             return newEdited;
         });
 
-        // Save the updated datasets to sessionStorage
-        sessionStorage.setItem('datasets', JSON.stringify(datasets));
+        // Update the datasets in Zustand store instead of sessionStorage
+        updateDatasets([...datasets]);
 
     } catch (error) {
         console.error('Error updating dataset:', error);
     }
   };
  
-  const handleRefreshDataset = (datasetIndex: number) => {
+  const handleRefreshDataset = async (datasetIndex: number) => {
     setSpinningRefresh((prevSpinning) => {
       const newSpinning = [...prevSpinning];
       newSpinning[datasetIndex] = true;
       return newSpinning;
     });
 
-    // Logic to refresh the dataset
-    console.log(`Refreshing dataset at index ${datasetIndex}`);
+    try {
+      const dataset = datasets[datasetIndex];
+      const { datasetId = '', dataset_relation_id = '' } = dataset.response;
 
-    // Simulate a delay for the refresh action
-    setTimeout(() => {
+      const refreshedData = await refreshDataset(datasetId, dataset_relation_id);
+      //console.log('Received refreshed data:', refreshedData);
+
+      const updatedDatasets = datasets.map((currentDataset, index) => {
+        if (index === datasetIndex) {
+          return {
+            ...currentDataset,
+            response: {
+              ...refreshedData,
+              datasetId,
+              dataset_relation_id,
+              columns: refreshedData.columns.map((column: any) => ({
+                columnName: column.columnName || column.column_name || '',
+                columnDescription: column.columnDescription || column.column_description || '',
+                columnDataDescription: column.columnDataDescription || column.column_data_description || '',
+                ...column
+              }))
+            }
+          };
+        }
+        return currentDataset;
+      });
+
+      // Update Zustand store instead of sessionStorage
+      updateDatasets(updatedDatasets);
+
+      // Reset edited states
+      setEditedColumns(prev => ({
+        ...prev,
+        [datasetIndex]: {}
+      }));
+
+      setEditedDatasets(prev => {
+        const newEdited = [...prev];
+        newEdited[datasetIndex] = false;
+        return newEdited;
+      });
+
+      setLastUpdateTime(Date.now());
+
+    } catch (error) {
+      console.error('Error refreshing dataset:', error);
+    } finally {
       setSpinningRefresh((prevSpinning) => {
         const newSpinning = [...prevSpinning];
         newSpinning[datasetIndex] = false;
         return newSpinning;
       });
-    }, 1000); // Adjust the timeout duration as needed
+    }
   };
  
   const handleToggleCollapse = (datasetIndex: number) => {
@@ -246,38 +312,52 @@ export default function App() {
   };
  
   const handleContinueClick = async () => {
-    if (isUpdated) {
+    if (isUpdated && projectName) {
         setLoading(true);
+        setErrorMessage('');
         try {
-            const storedDatasets = sessionStorage.getItem('datasets');
-            const projectNameInput = document.getElementById('projectName') as HTMLInputElement;
-            const projectName = projectNameInput?.value || '';
+            // Format relations into required string format
+            const formattedRelations = relations
+                .map(formatRelationString)
+                .filter(relation => relation !== '');
 
-            if (storedDatasets) {
-                const parsedDatasets = JSON.parse(storedDatasets);
+            // Create the payload with the new structure
+            const payload = {
+                project_name: projectName,
+                dataset_relation: formattedRelations,
+                data: datasets.map(dataset => ({
+                    datasetDescription: dataset.response.datasetDescription || '',
+                    columns: dataset.response.columns.map((column: Column) => ({
+                        columnName: column.columnName || column.column_name || '',
+                        columnDescription: column.columnDescription || column.column_description || '',
+                        columnDataDescription: column.columnDataDescription || column.column_data_description || '',
+                        columnDataType: column.columnDataType || column.column_data_type || ''
+                    })),
+                    datasetName: dataset.response.datasetName || '',
+                    datasetId: dataset.response.datasetId || '',
+                    dataset_relation_id: dataset.response.dataset_relation_id || '',
+                    table_name: dataset.response.table_name || '',
+                    db_type: dataset.response.db_type || ''
+                }))
+            };
 
-                // Extract only the response part of each dataset
-                const responses = parsedDatasets.map((dataset: any) => dataset.response);
-
-                // Log the responses being sent
-                console.log('Responses being sent to continue API:', responses);
-
-                // Create the payload with the new structure
-                const payload = {
-                    name: projectName,
-                    data: responses
-                };
-
-                // Send the payload to the continue API
-                const response = await postDatasetChart(payload);
-                console.log('Continue API response:', response);
-
-                sessionStorage.setItem('continueApiResponse', JSON.stringify(response));
-
-                router.push('/generate');
-            }
-        } catch (error) {
+            //console.log('Payload being sent to continue API:', payload);
+            const response = await postDatasetChart(payload);
+            //console.log('Response from continue API:', response);
+            
+            // Store the response in the global state regardless of format
+            useDatasetStore.getState().setContinueApiResponse(response);
+            useDatasetStore.getState().setProjectName(projectName);
+            
+            router.push('/generate');
+        } catch (error: any) {
             console.error('Error posting dataset chart:', error);
+            if (error.message?.includes('Project name') && error.message?.includes('already exists')) {
+                setErrorMessage('Project name already exists. Please choose a different name.');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                setErrorMessage('An error occurred while processing your request.');
+            }
         } finally {
             setLoading(false);
         }
@@ -285,11 +365,54 @@ export default function App() {
   };
  
   const handleProjectNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newProjectName = event.target.value;
-    setProjectName(newProjectName);
-    sessionStorage.setItem('projectName', newProjectName); // Store project name in sessionStorage
+    setProjectName(event.target.value);
   };
  
+  // Add this function to handle adding new relation
+  const addNewRelation = () => {
+    setRelations([...relations, {
+      file1: '',
+      column1: '',
+      operator: '',
+      file2: '',
+      column2: ''
+    }]);
+  };
+
+  // Add this function to handle removing a relation
+  const removeRelation = (index: number) => {
+    const newRelations = relations.filter((_, i) => i !== index);
+    setRelations(newRelations);
+  };
+
+  // Add this function to update a specific relation
+  const updateRelation = (index: number, field: string, value: string) => {
+    const newRelations = [...relations];
+    newRelations[index] = {
+      ...newRelations[index],
+      [field]: value
+    };
+    setRelations(newRelations);
+  };
+
+  // Add function to format relation string
+  const formatRelationString = (relation: {
+    file1: string;
+    column1: string;
+    file2: string;
+    column2: string;
+  }) => {
+    const dataset1 = datasets.find(d => d.fileName === relation.file1);
+    const dataset2 = datasets.find(d => d.fileName === relation.file2);
+    
+    if (!dataset1 || !dataset2) return '';
+
+    const table1 = dataset1.response.table_name;
+    const table2 = dataset2.response.table_name;
+
+    return `${table1}.${relation.column1} = ${table2}.${relation.column2}`;
+  };
+
   return (
     <div className="flex flex-col min-h-screen" style={{ fontFamily: 'Poppins' }}>
       {/* Header */}
@@ -314,7 +437,7 @@ export default function App() {
 
           {/* Add Project Name Input */}
           <div className="mt-4">
-            <label htmlFor="projectName" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="projectName" className="block text-base font-medium text-gray-700">
               Project Name: <span className="text-red-500">*</span>
             </label>
             <Input
@@ -326,6 +449,11 @@ export default function App() {
               value={projectName}
               onChange={handleProjectNameChange}
             />
+            {errorMessage && (
+              <p className="mt-2 text-sm text-red-600">
+                {errorMessage}
+              </p>
+            )}
           </div>
  
           {datasets.map((dataset, datasetIndex) => (
@@ -395,15 +523,16 @@ export default function App() {
                         <th className="py-3 px-4 text-left">Data Description</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody key={`${datasetIndex}-${lastUpdateTime}`}>
                       {dataset.response.columns.map((column: any, index: number) => (
-                        <tr key={index} className="border-t relative">
+                        <tr key={`${index}-${lastUpdateTime}`} className="border-t relative">
                           <td className="py-3 px-4 text-gray-700 relative">
-                            {column.columnName}
+                            {column.columnName || column.column_name}
                           </td>
                           <td className="py-3 px-4 relative">
                             <Input
-                              defaultValue={column.columnDescription}
+                              key={`desc-${index}-${lastUpdateTime}`}
+                              value={column.columnDescription || column.column_description || ''}
                               className="focus:border-black"
                               onChange={(e) => handleColumnChange(datasetIndex, index, 'columnDescription', e.target.value)}
                             />
@@ -415,7 +544,8 @@ export default function App() {
                           </td>
                           <td className="py-3 px-4 relative">
                             <Input
-                              defaultValue={column.columnDataDescription}
+                              key={`data-desc-${index}-${lastUpdateTime}`}
+                              value={column.columnDataDescription || column.column_data_description || ''}
                               className="focus:border-black"
                               onChange={(e) => handleColumnChange(datasetIndex, index, 'columnDataDescription', e.target.value)}
                             />
@@ -483,7 +613,7 @@ export default function App() {
             ref={fileInputRef}
             onChange={handleFileUpload}
             className="hidden"
-            accept=".csv, .xlsx"
+            accept=".csv, .xls, .xlsx"
           />
  
           {loading && (
@@ -496,69 +626,93 @@ export default function App() {
  
       {/* Relation Modal */}
       <Modal isOpen={isRelationModalOpen} onClose={() => setIsRelationModalOpen(false)}>
-        <h3 className="text-lg font-semibold mb-4">Enter Relation</h3>
-        <div className="space-y-4">
-          {/* First Dropdown: File Names */}
-          <select
-            value={selectedFile1}
-            onChange={(e) => setSelectedFile1(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">Select File</option>
-            {datasets.map((dataset, index) => (
-              <option key={index} value={dataset.fileName}>{dataset.fileName}</option>
-            ))}
-          </select>
+        <div className="px-6 w-[800px]">
+          <h3 className="text-2xl font-semibold mb-8 text-gray-800">Dataset Relations</h3>
+          <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-4">
+            {relations.map((relation, index) => (
+              <div key={index} className="bg-gray-50 p-8 rounded-xl border border-gray-200 shadow-sm relative">
+                <button 
+                  onClick={() => removeRelation(index)}
+                  className="absolute top-4 right-4 p-1 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+                
+                <div className="space-y-5">
+                  <div className="grid grid-cols-5 gap-4 items-end">
+                    {/* First File and Column Group */}
+                    <div className="space-y-3 col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Dataset 1</label>
+                      <select
+                        value={relation.file1}
+                        onChange={(e) => updateRelation(index, 'file1', e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      >
+                        <option value="">Select dataset</option>
+                        {datasets.map((dataset, i) => (
+                          <option key={i} value={dataset.fileName}>{dataset.fileName}</option>
+                        ))}
+                      </select>
 
-          {/* Second Dropdown: Column Names of Selected File */}
-          <select
-            value={selectedColumn1}
-            onChange={(e) => setSelectedColumn1(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-            disabled={!selectedFile1}
-          >
-            <option value="">Select Column</option>
-            {getColumnNames(selectedFile1).map((columnName, index) => (
-              <option key={index} value={columnName}>{columnName}</option>
-            ))}
-          </select>
+                      <select
+                        value={relation.column1}
+                        onChange={(e) => updateRelation(index, 'column1', e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        disabled={!relation.file1}
+                      >
+                        <option value="">Select column</option>
+                        {getColumnNames(relation.file1).map((columnName: string, i: number) => (
+                          <option key={i} value={columnName}>{columnName}</option>
+                        ))}
+                      </select>
+                    </div>
 
-          {/* Third Dropdown: Operators */}
-          <select
-            value={selectedOperator}
-            onChange={(e) => setSelectedOperator(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">Select Operator</option>
-            {operatorOptions.map((operator, index) => (
-              <option key={index} value={operator}>{operator}</option>
-            ))}
-          </select>
+                    {/* Centered Equals Sign */}
+                    <div className="flex justify-center items-center">
+                      <span className="text-2xl font-medium text-gray-600">=</span>
+                    </div>
 
-          {/* Fourth Dropdown: File Names */}
-          <select
-            value={selectedFile2}
-            onChange={(e) => setSelectedFile2(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">Select File</option>
-            {datasets.map((dataset, index) => (
-              <option key={index} value={dataset.fileName}>{dataset.fileName}</option>
-            ))}
-          </select>
+                    {/* Second File and Column Group */}
+                    <div className="space-y-3 col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Dataset 2</label>
+                      <select
+                        value={relation.file2}
+                        onChange={(e) => updateRelation(index, 'file2', e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      >
+                        <option value="">Select dataset</option>
+                        {datasets
+                          .filter(dataset => dataset.fileName !== relation.file1) // Exclude selected Dataset 1
+                          .map((dataset, i) => (
+                            <option key={i} value={dataset.fileName}>{dataset.fileName}</option>
+                          ))}
+                      </select>
 
-          {/* Fifth Dropdown: Column Names of Selected File */}
-          <select
-            value={selectedColumn2}
-            onChange={(e) => setSelectedColumn2(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-            disabled={!selectedFile2}
-          >
-            <option value="">Select Column</option>
-            {getColumnNames(selectedFile2).map((columnName, index) => (
-              <option key={index} value={columnName}>{columnName}</option>
+                      <select
+                        value={relation.column2}
+                        onChange={(e) => updateRelation(index, 'column2', e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        disabled={!relation.file2}
+                      >
+                        <option value="">Select column</option>
+                        {getColumnNames(relation.file2).map((columnName: string, i: number) => (
+                          <option key={i} value={columnName}>{columnName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
-          </select>
+
+            <button
+              onClick={addNewRelation}
+              className="w-full p-3 mt-6 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">+</span>
+              {relations.length === 0 ? 'Add Relation' : 'Add Another Relation'}
+            </button>
+          </div>
         </div>
       </Modal>
  

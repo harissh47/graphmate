@@ -14,10 +14,26 @@ import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   onChartSelect: (chartType: ChartType) => void;
+  currentChartType: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onChartSelect }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onChartSelect, currentChartType }) => {
   const router = useRouter();
+
+  const chartTypesToShow = () => {
+    switch (currentChartType) {
+      case 'Line Chart':
+      case 'Bar Chart':
+      case 'Pie Chart':
+        return ['Line Chart', 'Bar Chart', 'Pie Chart'];
+      case 'Scatter Plot':
+        return ['Scatter Plot'];
+      case 'Heatmap':
+        return ['Heatmap'];
+      default:
+        return [];
+    }
+  };
 
   return (
     <div className="fixed top-0 left-0 w-full sm:w-60 bg-white/40 text-black h-screen p-7">
@@ -35,51 +51,61 @@ const Sidebar: React.FC<SidebarProps> = ({ onChartSelect }) => {
 
       {/* Chart Types List */}
       <ul className="flex flex-col space-y-3 sm:space-y-5">
-        <li>
-          <a
-            href="#"
-            onClick={() => onChartSelect('Line Chart' as ChartType)}
-            className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
-          >
-            <FontAwesomeIcon icon={faChartLine} className="mr-2" /> Line Chart
-          </a>
-        </li>
-        <li>
-          <a
-            href="#"
-            onClick={() => onChartSelect('Bar Graph' as ChartType)}
-            className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
-          >
-            <FontAwesomeIcon icon={faChartBar} className="mr-2" /> Bar Graph
-          </a>
-        </li>
-        <li>
-          <a
-            href="#"
-            onClick={() => onChartSelect('Pie Chart' as ChartType)}
-            className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
-          >
-            <FontAwesomeIcon icon={faChartPie} className="mr-2" /> Pie Chart
-          </a>
-        </li>
-        <li>
-          <a
-            href="#"
-            onClick={() => onChartSelect('Scatter Plot' as ChartType)}
-            className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
-          >
-            <FontAwesomeIcon icon={faChartArea} className="mr-2" /> Scatter Plot
-          </a>
-        </li>
-        <li>
-          <a
-            href="#"
-            onClick={() => onChartSelect('Heatmap' as ChartType)}
-            className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
-          >
-            <FontAwesomeIcon icon={faChartArea} className="mr-2" /> Heatmap
-          </a>
-        </li>
+        {chartTypesToShow().includes('Line Chart') && (
+          <li>
+            <a
+              href="#"
+              onClick={() => onChartSelect('Line Chart' as ChartType)}
+              className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
+            >
+              <FontAwesomeIcon icon={faChartLine} className="mr-2" /> Line Chart
+            </a>
+          </li>
+        )}
+        {chartTypesToShow().includes('Bar Chart') && (
+          <li>
+            <a
+              href="#"
+              onClick={() => onChartSelect('Bar Chart' as ChartType)}
+              className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
+            >
+              <FontAwesomeIcon icon={faChartBar} className="mr-2" /> Bar Chart
+            </a>
+          </li>
+        )}
+        {chartTypesToShow().includes('Pie Chart') && (
+          <li>
+            <a
+              href="#"
+              onClick={() => onChartSelect('Pie Chart' as ChartType)}
+              className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
+            >
+              <FontAwesomeIcon icon={faChartPie} className="mr-2" /> Pie Chart
+            </a>
+          </li>
+        )}
+        {chartTypesToShow().includes('Scatter Plot') && (
+          <li>
+            <a
+              href="#"
+              onClick={() => onChartSelect('Scatter Plot' as ChartType)}
+              className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
+            >
+              <FontAwesomeIcon icon={faChartArea} className="mr-2" /> Scatter Plot
+            </a>
+          </li>
+        )}
+        {chartTypesToShow().includes('Heatmap') && (
+          <li>
+            <a
+              href="#"
+              onClick={() => onChartSelect('Heatmap' as ChartType)}
+              className="flex items-center block px-3 py-1 rounded-md transition-colors hover:bg-black/10"
+            >
+              <FontAwesomeIcon icon={faChartArea} className="mr-2" /> Heatmap
+            </a>
+          </li>
+        )}
       </ul>
     </div>
   );

@@ -5,7 +5,7 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'GraphMates - Intelligent Data Visualization',
+  title: 'GraphMate - Intelligent Data Visualization',
   description: 'Transform your data into beautiful, insightful visualizations with the power of AI',
 };
 

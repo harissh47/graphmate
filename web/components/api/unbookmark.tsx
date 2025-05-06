@@ -5,11 +5,14 @@ export async function unbookmarkChart(id: string) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // This enables sending and receiving cookies
         body: JSON.stringify({ id }),
       });
-       if (!response.ok) {
+      
+      if (!response.ok) {
         throw new Error('Failed to unbookmark the chart');
       }
+      
     } catch (error) {
       console.error('Error in unbookmarking the chart:', error);
     }

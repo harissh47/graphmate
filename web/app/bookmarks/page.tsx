@@ -11,6 +11,7 @@ import { fetchBookmarks } from '../../components/api/bookmarkdetails';
 import { generateData } from '../../components/api/graphapi';
 import { TrashIcon, ChevronUpIcon, ChevronDownIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import QueryDisplay from '../generate/QueryDisplay';
+import { useDatasetStore } from '../datastorage/dataStore';
 
 interface Chart {
   id: string;
@@ -94,11 +95,20 @@ export default function BookmarkDetails() {
   const [bookmarks, setBookmarks] = useState<BookmarkDetails[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<string>('');
   const [selectedChart, setSelectedChart] = useState<Chart | null>(null);
-  const [chartData, setChartData] = useState<any>(null);
   const [chartDataVersion, setChartDataVersion] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState<boolean>(true);
+
+  // Get state and actions from the store
+  const projectName = useDatasetStore((state) => state.projectName);
+  const chartData = useDatasetStore((state) => state.chartData);
+  const setChartData = useDatasetStore((state) => state.setChartData);
+  const setSelectedChartId = useDatasetStore((state) => state.setSelectedChartId);
+  const setCurrentPrompt = useDatasetStore((state) => state.setCurrentPrompt);
+  const setCurrentChartType = useDatasetStore((state) => state.setCurrentChartType);
+  const setCurrentChartData = useDatasetStore((state) => state.setCurrentChartData);
+  const updatePrompt = useDatasetStore((state) => state.updatePrompt);
 
   const detailsRef = useRef<HTMLDivElement | null>(null);
 
@@ -127,16 +137,26 @@ export default function BookmarkDetails() {
   const handlePromptClick = async (chart: Chart) => {
     try {
       setLoading(true);
-      setError(null); // Clear any existing error
+      setError(null);
+      //console.log('Clicked chart ID:', chart.id);
       const data = await generateData(chart.id);
-      setSelectedChart(chart); // Store the entire chart object
-      setChartData(data); // Ensure chartData is set correctly
+      setSelectedChart(chart);
+      setChartData(data);
+      setSelectedChartId(chart.id);
       setChartDataVersion((prev) => prev + 1);
-      console.log('Chart data:', data); // Debugging: Log chart data
+      //console.log('Chart data:', data);
+
+      // Update the store with the current prompt, chart type, and data
+      setCurrentPrompt(chart.llm_prompt);
+      setCurrentChartType(chart.chart_type);
+      setCurrentChartData(data);
+
+      // Update the prompt in the store
+      updatePrompt(chart.id, { llm_prompt: chart.llm_prompt, chart_type: chart.chart_type, data });
+
     } catch (error) {
       setError('Failed to fetch chart data');
       console.error('Error fetching chart data:', error);
-      // Automatically clear error after 3 seconds
       setTimeout(() => {
         setError(null);
       }, 3000);
@@ -156,7 +176,6 @@ export default function BookmarkDetails() {
     } catch (error) {
       setError('Failed to delete bookmark');
       console.error('Error deleting bookmark:', error);
-      // Automatically clear error after 3 seconds
       setTimeout(() => {
         setError(null);
       }, 3000);
@@ -184,6 +203,10 @@ export default function BookmarkDetails() {
 
   const toggleDetailsVisibility = () => {
     setIsDetailsVisible(!isDetailsVisible);
+  };
+
+  const navigateToMoreCharts = () => {
+    router.push('/moreCharts');
   };
 
   return (
@@ -255,10 +278,17 @@ export default function BookmarkDetails() {
                     selectedChart={selectedChart.chart_type}
                     chartDataVersion={chartDataVersion}
                     isPromptSelected={!!selectedChart}
+                    selectedPrompt={selectedChart.llm_prompt}
+                    chartData={chartData}
+                    navigateToMoreCharts={navigateToMoreCharts}
                   />
                 </div>
                 <div className="data-table-container mb-4">
-                  <DataTable chartData={chartData} />
+                  <DataTable 
+                    chartData={chartData} 
+                    selectedChart={selectedChart.chart_type}
+                    chartId={selectedChart.id}
+                  />
                 </div>
                 <div className="query-display-container">
                   <QueryDisplay 

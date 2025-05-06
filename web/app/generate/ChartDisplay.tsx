@@ -5,14 +5,18 @@ import Link from 'next/link';
 import zoomin from './assets/zoomin.png';
 import * as echarts from 'echarts';
 import { getChartOption } from './chartOptions';
+import { ChartData } from '../datastorage/dataStore';
 
 interface ChartDisplayProps {
     selectedChart: string;
     chartDataVersion: number;
     isPromptSelected: boolean;
+    selectedPrompt: string;
+    chartData: ChartData | null;
+    navigateToMoreCharts: () => void;
 }
 
-export default function ChartDisplay({ selectedChart, chartDataVersion, isPromptSelected }: ChartDisplayProps) {
+export default function ChartDisplay({ selectedChart, chartDataVersion, isPromptSelected, selectedPrompt, chartData, navigateToMoreCharts }: ChartDisplayProps) {
     const [isZoomed, setIsZoomed] = useState(false);
     const [loading, setLoading] = useState(false);
     const chartRef = useRef<HTMLDivElement | null>(null);
@@ -21,14 +25,6 @@ export default function ChartDisplay({ selectedChart, chartDataVersion, isPrompt
 
     const toggleZoom = () => {
         setIsZoomed(!isZoomed);
-    };
-
-    const handleMoreVisualizationsClick = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            window.location.href = '/moreCharts';
-        }, 1000);
     };
 
     useEffect(() => {
@@ -54,7 +50,7 @@ export default function ChartDisplay({ selectedChart, chartDataVersion, isPrompt
             const chartInstance = chartInstanceRef.current;
             const option = getChartOption(selectedChart);
 
-            console.log('Chart option:', option);
+            // //console.log('Chart option:', option);
 
             if (option) {
                 chartInstance.setOption(option, true);
@@ -93,7 +89,10 @@ export default function ChartDisplay({ selectedChart, chartDataVersion, isPrompt
                     Visualization - {selectedChart}
                 </h3>
                 <div className="flex items-center space-x-2">
-                    <button onClick={handleMoreVisualizationsClick} className="px-3 py-2 bg-blue-500 text-white rounded-xl shadow-sm hover:bg-blue-600">
+                    <button 
+                        onClick={navigateToMoreCharts}
+                        className="px-2 py-1 bg-blue-500 text-white rounded-xl shadow-sm hover:bg-blue-600 inline-flex items-center"
+                    >
                         More Visualizations
                     </button>
                     <button onClick={toggleZoom} className="text-gray-500 hover:text-gray-700">
