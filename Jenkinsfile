@@ -2,27 +2,23 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = 'mappy-web-app'
-    CONTAINER_NAME = 'mappy-web-container'
-    APP_PORT = '3000'
+    IMAGE_NAME      = 'mappy-web-app'
+    CONTAINER_NAME  = 'mappy-web-container'
+    APP_PORT        = '3000'
+    NODE_ENV        = 'production'
   }
 
   stages {
-    stage('Install Web Dependencies') {
+    stage('Checkout') {
       steps {
-        cleanWs()
-        bat 'dir /B /S'
-        echo '📦 Installing web dependencies...'
-        dir('web') {
-          bat 'npm install'
-        }
+        checkout scm
       }
     }
 
-    stage('Build Web App') {
+    stage('Install & Build Web') {
       steps {
-        echo '🏗️ Building production build...'
         dir('web') {
+          bat 'npm install'
           bat 'npm run build'
         }
       }
@@ -30,7 +26,6 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        echo '🐳 Building Docker image...'
         dir('web') {
           bat "docker build -t %IMAGE_NAME% ."
         }
@@ -39,7 +34,6 @@ pipeline {
 
     stage('Run Docker Container') {
       steps {
-        echo '🚀 Running Docker container...'
         bat "docker rm -f %CONTAINER_NAME% || exit 0"
         bat "docker run -d -p %APP_PORT%:3000 --name %CONTAINER_NAME% %IMAGE_NAME%"
       }
@@ -48,10 +42,10 @@ pipeline {
 
   post {
     success {
-      echo '✅ Application is running in Docker at http://localhost:3000'
+      echo "✅ App running in Docker at http://<jenkins-host>:${env.APP_PORT}"
     }
     failure {
-      echo '❌ Pipeline failed. Check logs for details.'
+      echo "❌ Pipeline failed—check console logs."
     }
   }
 }
