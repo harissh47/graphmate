@@ -11,6 +11,7 @@ pipeline {
     stage('Install Web Dependencies') {
       steps {
         cleanWs()
+        bat 'dir /B /S'
         echo '📦 Installing web dependencies...'
         dir('web') {
           bat 'npm install'
