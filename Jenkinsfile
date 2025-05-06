@@ -2,31 +2,28 @@ pipeline {
   agent any
 
   environment {
-    // Name for the built Docker image
-    IMAGE_NAME = "my-node-app"
-    // Container port to expose
-    APP_PORT   = "3000"
+    IMAGE_NAME     = 'mappy-web-app'
+    APP_PORT       = '3000'
   }
 
   stages {
     stage('Checkout') {
       steps {
-        checkout scm                                             // clone your repo :contentReference[oaicite:4]{index=4}
+        checkout scm                                     // repo → workspace root :contentReference[oaicite:2]{index=2}
       }
     }
 
     stage('Install & Build') {
-      // run inside official Node.js image, with Docker socket mounted
       agent {
         docker {
-          image 'node:18-alpine'
+          image 'node:18-alpine'                        // Node.js environment :contentReference[oaicite:3]{index=3}
           args  '-v /var/run/docker.sock:/var/run/docker.sock'
         }
       }
       steps {
-        dir('web') {                                            // switch into web/ where package.json lives 
-          sh 'npm install'                                      // install dependencies 
-          sh 'npm run build'                                    // build production assets 
+        dir('web') {                                    // web/ holds package.json 
+          sh 'npm install'                              // install deps 
+          sh 'npm run build'                            // production build 
         }
       }
     }
@@ -35,8 +32,8 @@ pipeline {
       steps {
         dir('web') {
           script {
-            // build image and tag with build number
-            IMAGE = docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}", ".")  :contentReference[oaicite:8]{index=8}
+            // ← CORRECTED: no stray “:contentRe”
+            IMAGE = docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}", ".")  :contentReference[oaicite:7]{index=7}
           }
         }
       }
@@ -45,10 +42,8 @@ pipeline {
     stage('Run Docker Container') {
       steps {
         script {
-          // remove old container if exists
-          sh "docker rm -f ${env.IMAGE_NAME} || true"          :contentReference[oaicite:9]{index=9}
-          // run new container, map host port to container port
-          sh "docker run -d -p ${env.APP_PORT}:3000 --name ${env.IMAGE_NAME} ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"  :contentReference[oaicite:10]{index=10}
+          sh "docker rm -f ${env.IMAGE_NAME} || true"    // cleanup old container :contentReference[oaicite:8]{index=8}
+          sh "docker run -d -p ${env.APP_PORT}:3000 --name ${env.IMAGE_NAME} ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"  :contentReference[oaicite:9]{index=9}
         }
       }
     }
@@ -56,10 +51,10 @@ pipeline {
 
   post {
     success {
-      echo "✅ Application is running at http://<jenkins-host>:${env.APP_PORT}"
+      echo "✅ App running at http://<jenkins-host>:${env.APP_PORT}"
     }
     failure {
-      echo "❌ Pipeline failed—see console output for details."
+      echo "❌ Pipeline failed—see console for errors."
     }
   }
 }
